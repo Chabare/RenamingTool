@@ -41,6 +41,9 @@ int main() {
 		exit (1);
 	}
 
+	if (directory.at (directory.length () - 1) != '/' || directory.at (directory.length () - 1) != '\\')
+		directory.append ("\\");
+
 	if (showFiles)
 		std::cout << "Following files are in the given directory: " << std::endl;
 	// Put the files into the list(not "." and "..")
@@ -84,13 +87,17 @@ int main() {
 	for (std::list<std::string>::iterator i = filesWPrefix.begin (); i != filesWPrefix.end (); i++)
 		std::cout << *i << std::endl;
 	
+	// Rename files
 	std::list<int>::iterator l = prefixLen.begin ();
 	for (std::list<std::string>::iterator i = filesWPrefix.begin (); i != filesWPrefix.end (); i++, l++)
-		std::cout << "OLD: " << *i << "\tNEW: " << i->substr(*l, i->length() - *l) << std::endl;
-
+		if (rename ((directory + *i).c_str (), (directory + (i->substr (*l, i->length () - *l))).c_str ()) == -1) {
+			std::cout << "Renaming following file failed: " << *i << std::endl << "\nReason: " << strerror(errno) << std::endl << std::endl;
+		}
+	
+	std::cout << "Renaming finished" << std::endl;
 	// Close the directory
 	closedir (dir);
 
-	std::cin.ignore().get();
+	std::cin.get();
 	return 0;
 }
