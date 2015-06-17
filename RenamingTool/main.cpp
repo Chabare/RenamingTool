@@ -14,54 +14,204 @@ std::list<std::string> &split(const std::string &s, char delim, std::list<std::s
 	return elems;
 }
 
+/**
+	@param &s String to split
+	@param delim Delimiter to split the string
+	@return A list of strings divided by delim
+*/
 std::list<std::string> split(const std::string &s, char delim) {
 	std::list<std::string> elems;
 	split(s, delim, elems);
 	return elems;
 }
 
-bool contains(std::string input, std::list<std::string> list) {
+/**
+	Checks whether a list contains a certain string.
+
+	@param string String to search
+	@param list List to check
+	@return String is in list
+*/
+bool contains(std::string string, std::list<std::string> list) {
 	for (std::list<std::string>::iterator it = list.begin(); it != list.end(); it++)
-		if (*it == input)
+		if (*it == string)
 		return true;
 
 	return false;
 }
 
+/**
+	Checks whether a string starts with a certain prefix
+
+	@param string String to check
+	@param prefix Prefix to check for
+	@return Whether prefix is the prefix of string
+*/
 bool starts_with(std::string string, std::string prefix) {
 	return strcmp(string.substr(0, prefix.length()).c_str(), prefix.c_str()) == 0;
 }
 
+/**
+Checks whether a string ends with a certain suffix
 
+@param string String to check
+@param suffix Suffix to check for
+@return Whether suffix is the prefix of string
+*/
 bool ends_with(std::string string, std::string suffix) {
 	return strcmp(string.substr(string.length() - suffix.length(), string.length()).c_str(), suffix.c_str()) == 0;
 }
 
+/**
+	Prints a list of strings
+*/
 void printList(std::list<std::string> list) {
 	for (std::list<std::string>::iterator i = list.begin(); i != list.end(); i++)
 		std::cout << *i << std::endl;
 }
 
+/**
+	Prints a list of ints
+*/
 void printList(std::list<int> list) {
 	for (std::list<int>::iterator i = list.begin(); i != list.end(); i++)
 		std::cout << *i << std::endl;
 }
 
-void printError(std::string string, bool exit) {
-	std::cerr << string << std::endl;
+/**
+	Prints an error.
+
+	@param error Error to print
+	@param exit Whether the program should exit after the error
+*/
+void printError(std::string error, bool exit) {
+	std::cerr << error << std::endl;
 	if (exit)
-		printError(string, 1);
+		printError(error, 1);
 }
 
-void printError(std::string string, bool exit, int exitCode) {
-	std::cerr << string << std::endl;
-	if (exit)
-		printError(string, exitCode);
-}
+/**
+	Prints an error.
 
+	@param error Error to print
+	@param exit Whether the program should exit after the error
+	@param exitCode The exit code when the program stops
+*/
 void printError(std::string string, int exitCode) {
+	std::cerr << string << std::endl;
+	
+	printError(string, exitCode);
+}
+
+/**
+	Waits for user input and then exits
+
+	@param exitCode The exit code when the program stops
+*/
+void waitAndExit(int exitCode) {
 	std::cin.get();
 	exit(exitCode);
+}
+
+/**
+	Renames a list of files
+
+	@param files List of files to remain
+	@param prefixLen Length of prefix for each file
+	@param directory The directory in which the file is
+	@param The default name for a file
+*/
+void renameFiles(std::list<std::string> files, std::list<int> prefixLen,  std::string directory, std::string defaultName) {
+	std::list<int>::iterator l = prefixLen.begin();
+	// Iterate through files
+	for (std::list<std::string>::iterator i = files.begin(); i != files.end(); i++, l++) {
+		if (i->length() - *l == 0)
+			*i = defaultName;
+		// Rename file
+		if (rename((directory + *i).c_str(), (directory + (i->substr(*l, i->length() - *l))).c_str()) == -1)
+			printError("Renaming following file failed: " + *i + "\nReason: " + std::to_string(errno) + "\n", false);
+	}
+}
+
+/**
+	Gets the filenames from directory
+
+	@param pent Pointer to a struct of type dirent
+	@param dir Pointer to the directory
+	@return Returns the files from given directory
+*/
+std::list<std::string> getFilesFromDir(struct dirent *pent, DIR *dir) {
+	std::list<std::string> files;
+
+	// Put the files into the list(not "." and "..")
+	while(pent = readdir(dir))
+		if (pent == NULL)
+			printError("Sorry, the directory couldn't be read.", 3);
+		else
+			// Check for '.' and '..' links and don't add them to the file list
+			if (!(strcmp(pent->d_name, ".") == 0 || strcmp(pent->d_name, "..") == 0))
+				files.push_back(pent->d_name);
+
+	return files;
+}
+
+/**
+	Gets the input from user
+
+	@param inputReq Message to be displayed to request input from user
+	@param inputEnd String which needs to be entered to stop input
+	@param ignoreStart Ignores start character of input (e.g. '.' in '.mp3' -> mp3
+	@return Returns the input from the user
+*/
+std::list<std::string> getInput(std::string inputReq, std::string inputEnd, char ignoreStart) {
+	std::string input;
+	char in[128];
+	std::list<std::string> list;
+
+	while (input != ".") {
+		std::cout << inputReq << std::endl;
+		std::cin.getline(in, sizeof(in));
+		input = in;
+		if (input != "." && !contains(input, list)) {
+			if (ignoreStart != ' ' && input.at(0) == ignoreStart)
+				input = input.substr(1, input.length() - 1);
+			list.push_back(input);
+		}
+	}
+
+	return list;
+}
+
+/**
+	Gets the files from list which have one of the given prefixes and match the suffixes(if any)
+
+	@param files List of all the files
+	@param prefixes List of prefixes
+	@param suffix List of suffixes
+	@param prexifLen Pointer to an empty list where the length of the prefixes is written to
+	@return Returns a list of files which have one of the prefixes and match the suffixes
+*/
+std::list<std::string> getFilesWithPrefixAndSuffix(std::list<std::string> files, std::list<std::string> prefixes, std::list<std::string> suffix, std::list<int> *prefixLen) {
+	std::list<std::string> filesWPrefix;
+
+	for (std::list<std::string>::iterator i = files.begin(); i != files.end(); i++)
+		for (std::list<std::string>::iterator j = prefixes.begin(); j != prefixes.end(); j++)
+		if (starts_with(*i, *j)) {
+			if (suffix.size() > 0) {
+				// Iterate through suffixes
+				for (std::list<std::string>::iterator s = suffix.begin(); s != suffix.end(); s++)
+					if (ends_with(*i, *s)) {
+						filesWPrefix.push_back(*i);
+						prefixLen->push_back(j->length());
+					}
+			} else {
+				filesWPrefix.push_back(*i);
+				prefixLen->push_back(j->length());
+			}
+
+		}
+
+	return filesWPrefix;
 }
 
 int main(int argc, char* argv[]) {
@@ -101,7 +251,7 @@ int main(int argc, char* argv[]) {
 		}
 		// Command line argument: Output
 		else if (strcmp(argv[i], "-o") == 0 || strcmp(argv[i], "-output") == 0) {
-			if (i == argc)
+			if (i + 1 == argc)
 				showOutput = true;
 			else if (strcmp(argv[i + 1], "true") == 0)
 				showOutput = true;
@@ -160,66 +310,23 @@ int main(int argc, char* argv[]) {
 
 	if (showOutput)
 		std::cout << "Following files are in the given directory: " << std::endl;
-	// Put the files into the list(not "." and "..")
-	while (pent = readdir(dir)) {
-		if (pent == NULL)
-			printError("Sorry, the directory couldn't be read.", true, 3);
-		else
-			// Check for '.' and '..' links and don't add them to the file list
-			if (!(strcmp(pent->d_name, ".") == 0 || strcmp(pent->d_name, "..") == 0)) {
-				if (showOutput)
-					std::cout << pent->d_name << std::endl;
-				files.push_back(pent->d_name);
-			}
-	}
 
+	files = getFilesFromDir(pent, dir);
+	if (showOutput)
+		printList(files);
 
-	std::string input;
-	// Get the prefixes
-	if (!prefSet) {
-		while (input != ".") {
-			std::cout << std::endl << "Please enter the prefix which you want to remove(Type '.' to stop entering prefixes)." << std::endl;
-			std::cin.getline(in, sizeof(in));
-			input = in;
-			if (input != "." && !contains(input, prefixes))
-				prefixes.push_back(input);
-		}
-		input.clear();
-	}
+	// Get prefixes
+	if(!prefSet)
+		prefixes = getInput("Please enter the prefix which you want to remove(Type '.' to stop entering prefixes).", ".", ' ');
+
 
 	// Get the suffixes
-	if (!suffSet) {
-		while (input != ".") {
-			std::cout << "Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)" << std::endl;
-			std::cin.getline(in, sizeof(in));
-			input = in;
-			if (input != "." && !contains(input, suffix)) {
-				if (input.at(0) == '.')
-					input = input.substr(1, input.length() - 1);
-				suffix.push_back(input);
-			}
-		}
-		input.clear();
-	}
+	if (!suffSet)
+		suffix = getInput("Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)", ".", '.');
 
 	// Put the files with one of the given prefixes into the list
 	// Put the length of the prefix into the list
-	for (std::list<std::string>::iterator i = files.begin(); i != files.end(); i++)
-		for (std::list<std::string>::iterator j = prefixes.begin(); j != prefixes.end(); j++)
-		if (starts_with(*i, *j)) {
-			if (suffix.size() > 0) {
-				// Iterate through suffixes
-				for (std::list<std::string>::iterator s = suffix.begin(); s != suffix.end(); s++)
-					if (ends_with(*i, *s)) {
-						filesWPrefix.push_back(*i);
-						prefixLen.push_back(j->length());
-					}
-			} else {
-				filesWPrefix.push_back(*i);
-				prefixLen.push_back(j->length());
-			}
-
-		}
+	filesWPrefix = getFilesWithPrefixAndSuffix(files, prefixes, suffix, &prefixLen);
 
 	// Output the files with one of the given prefixes
 	if (showOutput) {
@@ -230,20 +337,12 @@ int main(int argc, char* argv[]) {
 
 	}
 
-	// Rename files
-	std::list<int>::iterator l = prefixLen.begin();
-	// Iterate through files
-	for (std::list<std::string>::iterator i = filesWPrefix.begin(); i != filesWPrefix.end(); i++, l++) {
-		if (i->length() - *l == 0)
-			*i = defaultName;
-		// Rename file
-		if (rename((directory + *i).c_str(), (directory + (i->substr(*l, i->length() - *l))).c_str()) == -1)
-			std::cout << "Renaming following file failed: " << *i << std::endl << "\nReason: " << errno << std::endl << std::endl;
-	}
+	renameFiles(files, prefixLen, directory, defaultName);
 
 	if (showOutput)
 		if (filesWPrefix.size() > 0)
-		std::cout << "Renaming finished" << std::endl;
+			std::cout << "Renaming finished" << std::endl;
+
 	// Close the directory
 	closedir(dir);
 
