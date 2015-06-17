@@ -15,6 +15,10 @@ bool starts_with (std::string string, std::string prefix) {
 	return strcmp(string.substr (0, prefix.length ()).c_str(), prefix.c_str()) == 0;
 }
 
+bool ends_with(std::string string, std::string suffix) {
+	return strcmp (string.substr (string.length() - suffix.length(), string.length()).c_str (), suffix.c_str ()) == 0;
+}
+
 int main() {
 	bool showFiles = true;
 	DIR *dir = NULL;
@@ -24,6 +28,7 @@ int main() {
 	std::list<std::string> files;
 	std::list<std::string> filesWPrefix;
 	std::list<int> prefixLen;
+	std::list<std::string> suffix;
 
 	// Get the directory from user('.' for current)
 	std::cout << "Please enter the directory(Type '.' for the current directory)." << std::endl;
@@ -73,13 +78,35 @@ int main() {
 	}
 	input.clear ();
 
+	// Get the suffixes
+	while (input != ".") {
+		std::cout << "Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)" << std::endl;
+		std::cin.getline (in, sizeof (in));
+		input = in;
+		if (input != "." && !contains (input, suffix)) {
+			if (input.at (0) == '.')
+				input = input.substr (1, input.length() - 1);
+			suffix.push_back (input);
+		}
+	}
+	input.clear ();
+
 	// Put the files with one of the given prefixes into the list
 	// Put the length of the prefix into the list
 	for (std::list<std::string>::iterator i = files.begin (); i != files.end (); i++)
 		for (std::list<std::string>::iterator j = prefixes.begin (); j != prefixes.end (); j++)
 			if (starts_with (*i, *j)) {
-				filesWPrefix.push_back (*i);
-				prefixLen.push_back (j->length());
+				if (suffix.size () > 0) {
+					for (std::list<std::string>::iterator s = suffix.begin (); s != suffix.end (); s++)
+						if (ends_with (*i, *s)) {
+							filesWPrefix.push_back (*i);
+							prefixLen.push_back (j->length());
+						}
+				} else {
+					filesWPrefix.push_back (*i);
+					prefixLen.push_back (j->length ());
+				}
+
 			}
 
 	// Output the files with one of the given prefixes
