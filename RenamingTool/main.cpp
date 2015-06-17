@@ -64,6 +64,8 @@ bool ends_with(std::string string, std::string suffix) {
 
 /**
 	Prints a list of strings
+
+	@param list List to be printed
 */
 void printList(std::list<std::string> list) {
 	for (std::list<std::string>::iterator i = list.begin(); i != list.end(); i++)
@@ -72,6 +74,8 @@ void printList(std::list<std::string> list) {
 
 /**
 	Prints a list of ints
+
+	@param list List to be printed
 */
 void printList(std::list<int> list) {
 	for (std::list<int>::iterator i = list.begin(); i != list.end(); i++)
@@ -91,26 +95,80 @@ void printError(std::string error, bool exit) {
 }
 
 /**
+Waits for user input and then exits
+
+@param exitCode The exit code when the program stops
+*/
+void getAndExit(int exitCode) {
+	std::cin.get();
+	exit(exitCode);
+}
+
+/**
 	Prints an error.
 
 	@param error Error to print
-	@param exit Whether the program should exit after the error
 	@param exitCode The exit code when the program stops
 */
 void printError(std::string string, int exitCode) {
 	std::cerr << string << std::endl;
 	
-	waitAndExit(exitCode);
+	getAndExit(exitCode);
+}
+/**
+	Returns the file type of a file name
+
+	@param fileName Name of the file
+	@return Type of the file
+*/
+std::string getFileType(std::string fileName) {
+	int pointPos = fileName.find_last_of('.');
+	if (pointPos == -1)
+		return "";
+
+	return fileName.substr(pointPos + 1, fileName.length() - pointPos);
 }
 
 /**
-	Waits for user input and then exits
+Removes the file type and the '.' from a filename
 
-	@param exitCode The exit code when the program stops
+@param fileName Name of the file
+@param fileType Type of the file
+@return Filename without file type
 */
-void waitAndExit(int exitCode) {
-	std::cin.get();
-	exit(exitCode);
+std::string removeFileType(std::string fileName, std::string fileType) {
+	return fileName.substr(0, fileName.length() - (fileType.length() + 1));
+}
+
+/**
+	Removes the file type and the '.' from a filename
+
+	@param fileName Name of the file
+	@return Filename without file type
+*/
+std::string removeFileType(std::string fileName) {
+	return removeFileType(fileName, getFileType(fileName));
+}
+
+/**
+	Finds the correct name for the file
+
+	@param newName Default new name
+	@param files List of all files in directory
+	@param renamedFiles A list of the renamed files
+	@param directory The directory of the files
+	@return New name for the file
+*/
+std::string determineNewFileName(std::string newName, std::list<std::string> files, std::list<std::string> renamedFiles, std::string directory) {
+	std::string fileType = getFileType(newName);
+	if(fileType != "")
+		newName = removeFileType(newName);
+	while (contains(newName + "." + fileType, files) || contains(directory + newName + "." + fileType, renamedFiles))
+		newName.append(" - Copy");
+
+	newName.append("." + fileType);
+
+	return directory + newName;
 }
 
 /**
@@ -121,15 +179,20 @@ void waitAndExit(int exitCode) {
 	@param directory The directory in which the file is
 	@param The default name for a file
 */
-void renameFiles(std::list<std::string> files, std::list<int> prefixLen,  std::string directory, std::string defaultName) {
+void renameFiles(std::list<std::string> files, std::list<std::string> newFiles, std::list<int> prefixLen,  std::string directory, std::string defaultName) {
+	std::list<std::string> renamedFiles;
 	std::list<int>::iterator l = prefixLen.begin();
 	// Iterate through files
-	for (std::list<std::string>::iterator i = files.begin(); i != files.end() && l != prefixLen.end(); i++, l++) {
+	for (std::list<std::string>::iterator i = newFiles.begin(); i != newFiles.end() && l != prefixLen.end(); i++, l++) {
 		if (i->length() - *l == 0)
 			*i = defaultName;
+		
 		// Rename file
-		if (rename((directory + *i).c_str(), (directory + (i->substr(*l, i->length() - *l))).c_str()) != 0)
-			printError("Renaming following file failed: " + *i + "\nReason: " + std::to_string(errno) + "\n", false);
+		std::string newName = determineNewFileName(i->substr(*l, i->length() - *l), files, renamedFiles, directory);
+		if (rename((directory + *i).c_str(), newName.c_str()) != 0)
+			printError("Renaming following file failed: " + *i + "\nReason: " + strerror(errno) + "\nNew name: " + newName + "\n", false);
+		else
+			renamedFiles.push_back(newName);
 	}
 }
 
@@ -215,15 +278,15 @@ std::list<std::string> getFilesWithPrefixAndSuffix(std::list<std::string> files,
 }
 
 int main(int argc, char* argv[]) {
-	char delimiter = ';';
-	std::regex regexFilename = std::regex("[^<>:\"/\\|?*]*");
-	std::string defaultName = "RenamedByRenamingTool";
 	bool dirSet = false;
 	bool showOutput = false;
 	bool prefSet = false;
 	bool suffSet = false;
+	char delimiter = ';';
 	DIR *dir = NULL;
 	struct dirent *pent = NULL;
+	std::regex regexFilename = std::regex("[^<>:\"/\\|?*]*");
+	std::string defaultName = "RenamedByRenamingTool";
 	std::string directory = ".";
 	std::list<std::string> prefixes;
 	std::list<std::string> files;
@@ -308,12 +371,11 @@ int main(int argc, char* argv[]) {
 	if (directory.at(directory.length() - 1) != '/' || directory.at(directory.length() - 1) != '\\')
 		directory.append("\\");
 
-	if (showOutput)
-		std::cout << "Following files are in the given directory: " << std::endl;
-
 	files = getFilesFromDir(pent, dir);
-	if (showOutput)
+	if (showOutput) {
+		std::cout << "Following files are in the given directory: " << std::endl;
 		printList(files);
+	}
 
 	// Get prefixes
 	if(!prefSet)
@@ -332,14 +394,12 @@ int main(int argc, char* argv[]) {
 		if (filesWPrefix.size() == 0)
 			std::cout << "None" << std::endl;
 		printList(filesWPrefix);
-
 	}
 
-	renameFiles(files, prefixLen, directory, defaultName);
+	renameFiles(files, filesWPrefix, prefixLen, directory, defaultName);
 
-	if (showOutput)
-		if (filesWPrefix.size() > 0)
-			std::cout << "Renaming finished" << std::endl;
+	if (filesWPrefix.size() > 0)
+		std::cout << "Renaming finished!" << std::endl;
 
 	// Close the directory
 	closedir(dir);
