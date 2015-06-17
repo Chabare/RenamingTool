@@ -124,11 +124,11 @@ void waitAndExit(int exitCode) {
 void renameFiles(std::list<std::string> files, std::list<int> prefixLen,  std::string directory, std::string defaultName) {
 	std::list<int>::iterator l = prefixLen.begin();
 	// Iterate through files
-	for (std::list<std::string>::iterator i = files.begin(); i != files.end(); i++, l++) {
+	for (std::list<std::string>::iterator i = files.begin(); i != files.end() && l != prefixLen.end(); i++, l++) {
 		if (i->length() - *l == 0)
 			*i = defaultName;
 		// Rename file
-		if (rename((directory + *i).c_str(), (directory + (i->substr(*l, i->length() - *l))).c_str()) == -1)
+		if (rename((directory + *i).c_str(), (directory + (i->substr(*l, i->length() - *l))).c_str()) != 0)
 			printError("Renaming following file failed: " + *i + "\nReason: " + std::to_string(errno) + "\n", false);
 	}
 }
@@ -324,8 +324,6 @@ int main(int argc, char* argv[]) {
 	if (!suffSet)
 		suffix = getInput("Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)", ".", '.');
 
-	// Put the files with one of the given prefixes into the list
-	// Put the length of the prefix into the list
 	filesWPrefix = getFilesWithPrefixAndSuffix(files, prefixes, suffix, &prefixLen);
 
 	// Output the files with one of the given prefixes
