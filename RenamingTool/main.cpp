@@ -100,7 +100,7 @@ void printError(std::string error, bool exit) {
 void printError(std::string string, int exitCode) {
 	std::cerr << string << std::endl;
 	
-	printError(string, exitCode);
+	waitAndExit(exitCode);
 }
 
 /**
