@@ -1,7 +1,25 @@
 #include "dirent.h"
 #include <iostream>
 #include <list>
+#include <regex>
+#include <sstream>
 #include <string>
+
+std::list<std::string> &split(const std::string &s, char delim, std::list<std::string> &elems) {
+	std::stringstream ss(s);
+	std::string item;
+	while (std::getline(ss, item, delim))
+		elems.push_back(item);
+
+	return elems;
+}
+
+
+std::list<std::string> split(const std::string &s, char delim) {
+	std::list<std::string> elems;
+	split(s, delim, elems);
+	return elems;
+}
 
 bool contains (std::string input, std::list<std::string> list) {
 	for (std::list<std::string>::iterator it = list.begin (); it != list.end(); it++)
@@ -19,8 +37,14 @@ bool ends_with(std::string string, std::string suffix) {
 	return strcmp (string.substr (string.length() - suffix.length(), string.length()).c_str (), suffix.c_str ()) == 0;
 }
 
-int main() {
-	bool showFiles = true;
+int main(int argc, char* argv[]) {
+	char delimiter = ';';
+	std::regex regexFilename = std::regex("[^<>:\"/\\|?*]*");
+	std::string defaultName = "RenamedByRenamingTool";
+	bool dirSet = false;
+	bool showOutput = false;
+	bool prefSet = false;
+	bool suffSet = false;
 	DIR *dir = NULL;
 	struct dirent *pent = NULL;
 	std::string directory = ".";
@@ -30,18 +54,54 @@ int main() {
 	std::list<int> prefixLen;
 	std::list<std::string> suffix;
 
-	// Get the directory from user('.' for current)
-	std::cout << "Please enter the directory(Type '.' for the current directory)." << std::endl;
+	// Get command line arguments
+	for (int i = 1; i < argc; i+=2) {
+		if (strcmp(argv[i], "-d") == 0) {
+			directory = argv[i + 1];
+			dirSet = true;
+		} else if (strcmp(argv[i], "-o") == 0) {
+			if (i == argc)
+				showOutput = true;
+			else if (strcmp(argv[i+1], "true") == 0)
+				showOutput = true;
+			else if (strcmp(argv[i+1], "false") == 0)
+				showOutput = false;
+			else {
+				showOutput = true;
+				i--;
+			}
+		} else if (strcmp(argv[i], "-def") == 0)
+			if (std::regex_match(argv[i + 1], regexFilename, std::regex_constants::match_default) == 1)
+				defaultName = argv[i + 1];
+			else
+				std::cerr << "The default name doesn't pass the naming conventions for filenames." << std::endl;
+		else if (strcmp(argv[i], "-p") == 0) {
+			prefixes = split(argv[i + 1], ';');
+			if(prefixes.size() > 0)
+				prefSet = true;
+		}
+		else if (strcmp(argv[i], "-s") == 0) {
+			if (strcmp(argv[i + 1], "none") != 0)
+				suffix = split(argv[i + 1], ';');
+
+			suffSet = true;
+		}
+	}
+
 	char in[128];
-	std::cin.getline (in, sizeof (in));
-	directory = in;
+	if (!dirSet) {
+		// Get the directory from user('.' for current)
+		std::cout << "Please enter the directory(Type '.' for the current directory)." << std::endl;
+		std::cin.getline(in, sizeof(in));
+		directory = in;
+	}
 
 	// Open directory
 	dir = opendir (directory.c_str());
 
-	// CHeck if directory exists
+	// Check if directory exists
 	if (dir == NULL) {
-		std::cout << "Sorry, the directory couldn't be opened." << std::endl;
+		std::cerr << "Sorry, the directory couldn't be opened." << std::endl;
 		std::cin.get ();
 		exit (1);
 	}
@@ -49,17 +109,17 @@ int main() {
 	if (directory.at (directory.length () - 1) != '/' || directory.at (directory.length () - 1) != '\\')
 		directory.append ("\\");
 
-	if (showFiles)
+	if (showOutput)
 		std::cout << "Following files are in the given directory: " << std::endl;
 	// Put the files into the list(not "." and "..")
 	while (pent = readdir (dir)) {
 		if (pent == NULL) {
-			std::cout << "Sorry, the directory couldn't be read." << std::endl;
+			std::cerr << "Sorry, the directory couldn't be read." << std::endl;
 			std::cin.get ();
 			exit (3);
 		} else
 			if (!(strcmp (pent->d_name, ".") == 0 || strcmp (pent->d_name, "..") == 0)) {
-				if (showFiles)
+				if (showOutput)
 					std::cout << pent->d_name << std::endl;
 				files.push_back (pent->d_name);
 			}
@@ -69,27 +129,31 @@ int main() {
 
 	std::string input;
 	// Get the prefixes
-	while (input != ".") {
-		std::cout << "Please enter the prefix which you want to remove(Type '.' to stop entering prefixes)." << std::endl;
-		std::cin.getline (in, sizeof(in));
-		input = in;
-		if (input != "." && !contains(input, prefixes))
-			prefixes.push_back (input);
+	if(!prefSet) {
+		while (input != ".") {
+			std::cout << "Please enter the prefix which you want to remove(Type '.' to stop entering prefixes)." << std::endl;
+			std::cin.getline (in, sizeof(in));
+			input = in;
+			if (input != "." && !contains(input, prefixes))
+				prefixes.push_back (input);
+		}
+		input.clear ();
 	}
-	input.clear ();
 
 	// Get the suffixes
-	while (input != ".") {
-		std::cout << "Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)" << std::endl;
-		std::cin.getline (in, sizeof (in));
-		input = in;
-		if (input != "." && !contains (input, suffix)) {
-			if (input.at (0) == '.')
-				input = input.substr (1, input.length() - 1);
-			suffix.push_back (input);
+	if (!suffSet) {
+		while (input != ".") {
+			std::cout << "Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)" << std::endl;
+			std::cin.getline(in, sizeof(in));
+			input = in;
+			if (input != "." && !contains(input, suffix)) {
+				if (input.at(0) == '.')
+					input = input.substr(1, input.length() - 1);
+				suffix.push_back(input);
+			}
 		}
+		input.clear();
 	}
-	input.clear ();
 
 	// Put the files with one of the given prefixes into the list
 	// Put the length of the prefix into the list
@@ -110,18 +174,26 @@ int main() {
 			}
 
 	// Output the files with one of the given prefixes
-	std::cout << "Files found with given prefixes: " << std::endl;
-	for (std::list<std::string>::iterator i = filesWPrefix.begin (); i != filesWPrefix.end (); i++)
-		std::cout << *i << std::endl;
-	
+	if(showOutput) {
+		std::cout << "Files found with given prefixes: " << std::endl;
+		if (filesWPrefix.size() == 0)
+			std::cout << "None" << std::endl;
+		for (std::list<std::string>::iterator i = filesWPrefix.begin (); i != filesWPrefix.end (); i++)
+			std::cout << *i << std::endl;
+
+	}
 	// Rename files
 	std::list<int>::iterator l = prefixLen.begin ();
-	for (std::list<std::string>::iterator i = filesWPrefix.begin (); i != filesWPrefix.end (); i++, l++)
-		if (rename ((directory + *i).c_str (), (directory + (i->substr (*l, i->length () - *l))).c_str ()) == -1) {
-			std::cout << "Renaming following file failed: " << *i << std::endl << "\nReason: " << strerror(errno) << std::endl << std::endl;
-		}
+	for (std::list<std::string>::iterator i = filesWPrefix.begin (); i != filesWPrefix.end (); i++, l++) {
+		if(i->length() - *l == 0)
+			*i = defaultName;
+		if (rename ((directory + *i).c_str (), (directory + (i->substr (*l, i->length () - *l))).c_str ()) == -1)
+			std::cout << "Renaming following file failed: " << *i << std::endl << "\nReason: " << errno << std::endl << std::endl;
+	}
 	
-	std::cout << "Renaming finished" << std::endl;
+	if(showOutput)
+		if(filesWPrefix.size() > 0)
+			std::cout << "Renaming finished" << std::endl;
 	// Close the directory
 	closedir (dir);
 
