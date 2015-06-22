@@ -357,8 +357,8 @@ std::list<std::string> getInput(std::string inputReq, std::string inputEnd, char
 	char in[128];
 	std::list<std::string> list;
 
+	std::cout << inputReq << std::endl;
 	while (input != ".") {
-		std::cout << inputReq << std::endl;
 		std::cin.getline(in, sizeof(in));
 		input = in;
 		if (input != "." && !contains(input, list)) {
