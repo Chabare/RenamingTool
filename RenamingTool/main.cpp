@@ -5,6 +5,8 @@
 #include <sstream>
 #include <string>
 
+#define MAX_INT 2147483647
+
 std::list<std::string> &split(const std::string &s, char delim, std::list<std::string> &elems) {
 	std::stringstream ss(s);
 	std::string item;
@@ -35,7 +37,7 @@ std::list<std::string> split(const std::string &s, char delim) {
 bool contains(std::string string, std::list<std::string> list) {
 	for (std::list<std::string>::iterator it = list.begin(); it != list.end(); it++)
 		if (*it == string)
-		return true;
+			return true;
 
 	return false;
 }
@@ -52,11 +54,11 @@ bool starts_with(std::string string, std::string prefix) {
 }
 
 /**
-Checks whether a string ends with a certain suffix
+	Checks whether a string ends with a certain suffix
 
-@param string String to check
-@param suffix Suffix to check for
-@return Whether suffix is the prefix of string
+	@param string String to check
+	@param suffix Suffix to check for
+	@return Whether suffix is the prefix of string
 */
 bool ends_with(std::string string, std::string suffix) {
 	return strcmp(string.substr(string.length() - suffix.length(), string.length()).c_str(), suffix.c_str()) == 0;
@@ -150,6 +152,18 @@ std::string removeFileType(std::string fileName) {
 	return removeFileType(fileName, getFileType(fileName));
 }
 
+bool isDigit(char c) {
+	return (int)c >= 48 && (int)c <= 57;
+}
+
+bool isDigit(std::string str) {
+	for (char c : str)
+		if (!isDigit(c))
+			return false;
+
+	return true;
+}
+
 /**
 	Checks whether given char is alphanumeric or not
 
@@ -167,13 +181,8 @@ bool isAlphanumeric(char c) {
 	@return File starting with alphanumeric character
 */
 std::string removeLeadingNoneCharacters(std::string fileName) {
-	std::cout << fileName << std::endl;
-	while (!isAlphanumeric(fileName.at(0))) {
-		std::cout << "BEFORE: " << fileName << std::endl;
+	while (!isAlphanumeric(fileName.at(0)))
 		fileName = fileName.substr(1, fileName.length() - 1);
-		std::cout << "After:  " << fileName << std::endl;
-	}
-	std::cout << std::endl;
 	
 	return fileName;
 }
@@ -243,6 +252,48 @@ void renameFiles(std::list<std::string> files, std::list<std::string> newFiles, 
 }
 
 /**
+	Checks whether the pointer is a directory or not
+
+	@param dir Pointer to file/dir
+	@return Struct is directory
+*/
+bool isDirectory(struct dirent *dir) {
+	return dir->d_type == 16384;
+}
+
+std::list<DIR> getDirectories(struct dirent *pent, DIR *dir, std::string directory, std::list<DIR> *dirs) {
+	DIR *newDir;
+
+	while (pent = readdir(dir))
+		if (isDirectory(pent) && !(strcmp(pent->d_name, ".") == 0 || strcmp(pent->d_name, "..") == 0)) {
+			newDir = opendir((directory + "\\" + pent->d_name).c_str());
+			if (newDir != NULL) {
+				dirs->push_back(*newDir);
+				getDirectories(pent, newDir, directory, dirs);
+			}
+		}
+			
+	return *dirs;
+}
+
+void getDirectoryNames(struct dirent *pent, DIR *dir, std::string directory, std::list<std::string> *dirs, int recDepth, int i) {
+	if (i >= recDepth)
+		return;
+	else
+		++i;
+
+	while (pent = readdir(dir))
+		if (isDirectory(pent) && !(strcmp(pent->d_name, ".") == 0 || strcmp(pent->d_name, "..") == 0)) {
+			dirs->push_back(directory + "\\" + pent->d_name);
+			getDirectoryNames(pent, opendir((directory + "\\" + pent->d_name).c_str()), directory + "\\" + pent->d_name, dirs, recDepth, i);
+		}
+}
+
+void getDirectoryNames(struct dirent *pent, DIR *dir, std::string directory, std::list<std::string> *dirs, int recDepth) {
+	getDirectoryNames(pent, dir, directory, dirs, recDepth, 0);
+}
+
+/**
 	Gets the filenames from directory
 
 	@param pent Pointer to a struct of type dirent
@@ -253,9 +304,10 @@ std::list<std::string> getFilesFromDir(struct dirent *pent, DIR *dir) {
 	std::list<std::string> files;
 
 	// Put the files into the list(not "." and "..")
-	while(pent = readdir(dir))
-		if (pent == NULL)
+	while (pent = readdir(dir))
+		if (pent == NULL) {
 			printError("Sorry, the directory couldn't be read.", 3);
+		}
 		else
 			// Check for '.' and '..' links and don't add them to the file list
 			if (!(strcmp(pent->d_name, ".") == 0 || strcmp(pent->d_name, "..") == 0))
@@ -335,7 +387,39 @@ std::list<std::string> getFilesWithPrefixAndSuffix(std::list<std::string> files,
 	return filesWPrefix;
 }
 
+void renameFilesInDirectory(DIR dir, std::string directory, bool showOutput, bool remLeadingNoneChar, std::list<std::string> prefixes, std::list<std::string> suffix, std::list<int> prefixLen) {
+	struct dirent *pent = NULL;
+	std::list<std::string> files;
+	std::list<std::string> filesWPrefix;
+
+	// Check for '\' as end and append if not there
+	if (directory.at(directory.length() - 1) != '/' || directory.at(directory.length() - 1) != '\\')
+		directory.append("\\");
+
+	files = getFilesFromDir(pent, &dir);
+	if (showOutput) {
+		std::cout << "Following files are in the given directory: " << std::endl;
+		printList(files);
+	}
+
+	filesWPrefix = getFilesWithPrefixAndSuffix(files, prefixes, suffix, &prefixLen, remLeadingNoneChar);
+
+	// Output the files with one of the given prefixes
+	if (showOutput) {
+		std::cout << "Files found with given prefixes: " << std::endl;
+		if (filesWPrefix.size() == 0)
+			std::cout << "None" << std::endl;
+		printList(filesWPrefix);
+	}
+
+	renameFiles(files, filesWPrefix, prefixLen, directory, "RenamedByRenamingTool", remLeadingNoneChar);
+}
+
 int main(int argc, char* argv[]) {
+	int recursiveDepth = MAX_INT;
+	bool recursive = false;
+	std::list<std::string> dirNames;
+
 	bool dirSet = false;
 	bool showOutput = false;
 	bool prefSet = false;
@@ -352,7 +436,7 @@ int main(int argc, char* argv[]) {
 	std::list<std::string> filesWPrefix;
 	std::list<int> prefixLen;
 	std::list<std::string> suffix;
-	
+
 	// Get command line arguments
 	for (int i = 1; i < argc; i += 2) {
 		// Command line argument: Directory
@@ -403,6 +487,25 @@ int main(int argc, char* argv[]) {
 			if (prefixes.size() > 0)
 				prefSet = true;
 		}
+		// Command line argument: Recursive
+		else if (strcmp(argv[i], "-r") == 0 || strcmp(argv[i], "-recursive") == 0) {
+			if (i + 1 == argc)
+				recursive = true;
+			else if (strcmp(argv[i + 1], "true") == 0)
+				recursive = true;
+			else if (strcmp(argv[i + 1], "false") == 0)
+				recursive = false;
+			else {
+				recursive = true;
+				i--;
+			}
+		}
+		// Command line argument: Recursive depth
+		else if (strcmp(argv[i], "-rd") == 0 || strcmp(argv[i], "-recursivedepth") == 0) {
+			if (isDigit(argv[i + 1]))
+				if (atoi(argv[i + 1]) > 0)
+					recursiveDepth = atoi(argv[i + 1]);
+		}
 		// Command line argument: Suffix
 		else if (strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "-suffix") == 0) {
 			if (strcmp(argv[i + 1], "any") != 0)
@@ -437,20 +540,10 @@ int main(int argc, char* argv[]) {
 
 	// Check if directory exists
 	if (dir == NULL)
-		printError("Sorry, the directory couldn't be opened.", true);
-
-	// Check for '\' as end and append if not there
-	if (directory.at(directory.length() - 1) != '/' || directory.at(directory.length() - 1) != '\\')
-		directory.append("\\");
-
-	files = getFilesFromDir(pent, dir);
-	if (showOutput) {
-		std::cout << "Following files are in the given directory: " << std::endl;
-		printList(files);
-	}
+		printError("Sorry, the directory couldn't be opened.", 1);
 
 	// Get prefixes
-	if(!prefSet)
+	if (!prefSet)
 		prefixes = getInput("Please enter the prefix which you want to remove(Type '.' to stop entering prefixes).", ".", ' ');
 
 
@@ -458,23 +551,17 @@ int main(int argc, char* argv[]) {
 	if (!suffSet)
 		suffix = getInput("Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)", ".", '.');
 
-	filesWPrefix = getFilesWithPrefixAndSuffix(files, prefixes, suffix, &prefixLen, remLeadingNonChar);
+	if (recursive)
+		getDirectoryNames(pent, dir, directory, &dirNames, recursiveDepth);
 
-	// Output the files with one of the given prefixes
-	if (showOutput) {
-		std::cout << "Files found with given prefixes: " << std::endl;
-		if (filesWPrefix.size() == 0)
-			std::cout << "None" << std::endl;
-		printList(filesWPrefix);
-	}
 
-	renameFiles(files, filesWPrefix, prefixLen, directory, defaultName, remLeadingNonChar);
+	dirNames.push_front(directory);
 
-	if (filesWPrefix.size() > 0)
-		std::cout << "Renaming finished!" << std::endl;
 
-	// Close the directory
-	closedir(dir);
+	for (std::list<std::string>::iterator n = dirNames.begin(); n != dirNames.end(); n++)
+		renameFilesInDirectory(*opendir(n->c_str()), *n, showOutput, remLeadingNonChar, prefixes, suffix, prefixLen);
+
+	std::cout << "Renaming finished!" << std::endl;
 
 	std::cin.get();
 	return 0;
