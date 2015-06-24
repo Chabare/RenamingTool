@@ -473,7 +473,9 @@ int main(int argc, char* argv[]) {
 	for (int i = 1; i < argc; i += 2) {
 		// Command line argument: Directory
 		if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "-directory") == 0) {
-			directory = argv[i + 1];
+			dirNames = split(argv[i + 1], delimiter);
+			directory = dirNames.front();
+
 			dirSet = true;
 		}
 		// Command line argument: Default
