@@ -462,7 +462,6 @@ int main(int argc, char* argv[]) {
 	struct dirent *pent = NULL;
 	std::regex regexFilename = std::regex("[^<>:\"/\\|?*]*");
 	std::string defaultName = "renamed";
-	std::string directory = ".";
 	std::list<std::string> prefixes;
 	std::list<std::string> files;
 	std::list<std::string> filesWPrefix;
@@ -474,7 +473,6 @@ int main(int argc, char* argv[]) {
 		// Command line argument: Directory
 		if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "-directory") == 0) {
 			dirNames = split(argv[i + 1], delimiter);
-			directory = dirNames.front();
 
 			dirSet = true;
 		}
@@ -574,11 +572,11 @@ int main(int argc, char* argv[]) {
 		// Get the directory from user('.' for current)
 		std::cout << "Please enter the directory(Type '.' for the current directory)." << std::endl;
 		std::cin.getline(in, sizeof(in));
-		directory = in;
+		dirNames.push_back(in);
 	}
 
 	// Open directory
-	dir = opendir(directory.c_str());
+	dir = opendir(dirNames.front().c_str());
 
 	// Check if directory exists
 	if (dir == NULL)
@@ -594,9 +592,8 @@ int main(int argc, char* argv[]) {
 		;//  suffix = getInput("Please enter the suffixes(file types) which you want to remove(Type '.' to stop entering suffixes). You don't need to write the '.' (e.g. mp3 is enough)", ".", '.');
 
 	if (recursive)
-		getDirectoryNames(pent, dir, directory, &dirNames, excludedFolders, recursiveDepth);
-
-	dirNames.push_front(directory);
+		for (std::list<std::string>::iterator i = dirNames.begin(); i != dirNames.end(); i++)
+			getDirectoryNames(pent, opendir(i->c_str()), *i, &dirNames, excludedFolders, recursiveDepth);
 
 
 	for (std::list<std::string>::iterator n = dirNames.begin(); n != dirNames.end(); n++)
