@@ -42,6 +42,10 @@ bool contains(std::string string, std::list<std::string> list) {
 	return false;
 }
 
+bool contains(std::string string, std::string containing) {
+	return string.find_first_of(containing) != string.npos;
+}
+
 /**
 Checks whether a string starts with a certain prefix
 
@@ -200,6 +204,19 @@ std::list<std::string> removeLeadingNoneCharacters(std::list<std::string> list) 
 	return list;
 }
 
+int getCopyNumber(std::string name, std::string directory, std::string fileType, std::list<std::string> files, std::list<std::string> renamedFiles) {
+	int nr = 1;
+	name.append(" (1)");
+
+	while (contains(name + "." + fileType, files) || contains(directory + name + "." + fileType, renamedFiles)) {
+		nr++;
+		name = name.substr(0, name.length() - 2);
+		name.append(std::to_string(nr) + ")");
+	}
+
+	return nr;
+}
+
 /**
 Finds the correct name for the file
 
@@ -226,13 +243,21 @@ std::string determineNewFileName(std::string newName, std::list<std::string> fil
 	std::string fileType = getFileType(newName);
 	if (fileType != "")
 		newName = removeFileType(newName);
-	while (contains(newName + "." + fileType, files) || contains(directory + newName + "." + fileType, renamedFiles))
+	if (contains(newName + "." + fileType, files) || contains(directory + newName + "." + fileType, renamedFiles) || !contains(newName, "- Copy"))
 		newName.append(" - Copy");
+
+	if (contains(newName + "." + fileType, files) || contains(directory + newName + "." + fileType, renamedFiles))
+		newName.append(" (" + std::to_string(getCopyNumber(newName, directory, fileType, files, renamedFiles))).append(")");
+
+	
+		
 
 	newName.append("." + fileType);
 
 	return directory + newName;
 }
+
+
 
 int determineAddPrefixLength(std::string fileName) {
 	int cnt = 0;
