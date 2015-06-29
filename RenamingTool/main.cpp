@@ -46,6 +46,10 @@ bool contains(std::string string, std::string containing) {
 	return string.find_first_of(containing) != string.npos;
 }
 
+bool contains(std::string string, char containing) {
+	return string.find_first_of(containing) != string.npos;
+}
+
 /**
 Checks whether a string starts with a certain prefix
 
@@ -169,33 +173,41 @@ bool isDigit(std::string str) {
 }
 
 /**
-Checks whether given char is alphanumeric or not
+Checks whether given char is alphabetic or not
 
 @param c Character to check
-@return Char is alphanumeric
+@return Char is alphabetic
 */
-bool isAlphanumeric(wchar_t c) {
+bool isAlphabetical(wchar_t c) {
 	return ((int)c >= (int)'a' && (int)c <= (int)'z') || ((int)c >= (int)'A' && (int)c <= (int)'Z');
 }
 
-/**
-Removes the leading none (alphanumeric) characters from a file
+bool isAlphabetical(std::string string) {
+	for (wchar_t c : string)
+		if (!isAlphabetical(c))
+			return false;
 
-@param fileName Filename to remove leading none (alphanumeric) characters from
-@return File starting with alphanumeric character
+	return true;
+}
+
+/**
+Removes the leading none (alphabetic) characters from a file
+
+@param fileName Filename to remove leading none (alphabetic) characters from
+@return File starting with alphabetic character
 */
 std::string removeLeadingNoneCharacters(std::string fileName) {
-	while (!isAlphanumeric(fileName.at(0)))
+	while (fileName.size() > 0 && !isAlphabetical(fileName.at(0)))
 		fileName = fileName.substr(1, fileName.length() - 1);
 
 	return fileName;
 }
 
 /**
-Removes the leading none (alphanumeric) characters from a list of files
+Removes the leading none (alphabetic) characters from a list of files
 
-@param list List of filenames to remove leading none (alphanumeric) characters from
-@return List of filenames starting with alphanumeric character
+@param list List of filenames to remove leading none (alphabetic) characters from
+@return List of filenames starting with alphabetic character
 */
 std::list<std::string> removeLeadingNoneCharacters(std::list<std::string> list) {
 	for (std::list<std::string>::iterator i = list.begin(); i != list.end(); i++)
@@ -224,7 +236,7 @@ Finds the correct name for the file
 @param files List of all files in directory
 @param renamedFiles A list of the renamed files
 @param directory The directory of the files
-@param remLeadingNoneChar Whether leading none alphanumeric characters should be removed
+@param remLeadingNoneChar Whether leading none alphabetic characters should be removed
 @return New name for the file
 */
 std::string determineNewFileName(std::string newName, std::list<std::string> files, std::list<std::string> renamedFiles, std::string directory, bool remLeadingNoneChar) {
@@ -243,8 +255,10 @@ std::string determineNewFileName(std::string newName, std::list<std::string> fil
 	std::string fileType = getFileType(newName);
 	if (fileType != "")
 		newName = removeFileType(newName);
-	if (contains(newName + "." + fileType, files) || contains(directory + newName + "." + fileType, renamedFiles) || !contains(newName, "- Copy"))
+	if ((contains(newName + "." + fileType, files) || contains(directory + newName + "." + fileType, renamedFiles)) && !contains(newName, "- Copy")) {
+		std::cout << newName << "\t" << contains(newName, "- Copy") << std::endl;
 		newName.append(" - Copy");
+	}
 
 	if (contains(newName + "." + fileType, files) || contains(directory + newName + "." + fileType, renamedFiles))
 		newName.append(" (" + std::to_string(getCopyNumber(newName, directory, fileType, files, renamedFiles))).append(")");
@@ -258,11 +272,10 @@ std::string determineNewFileName(std::string newName, std::list<std::string> fil
 }
 
 
-
 int determineAddPrefixLength(std::string fileName) {
 	int cnt = 0;
 
-	for (int i = 0; i < fileName.length() && !isAlphanumeric(fileName.at(i)); i++)
+	for (int i = 0; i < fileName.length() && !isAlphabetical(fileName.at(i)); i++)
 		cnt++;
 
 
@@ -275,7 +288,7 @@ Renames a list of files
 @param files List of files to remain
 @param prefixLen Length of prefix for each file
 @param directory The directory in which the file is
-@param remLeadingNoneChar Whether leading none alphanumeric characters should be removed
+@param remLeadingNoneChar Whether leading none alphabetic characters should be removed
 @param The default name for a file
 */
 void renameFiles(std::list<std::string> files, std::list<std::string> newFiles, std::list<int> prefixLen, std::string directory, std::string defaultName, bool remLeadingNoneChar) {
@@ -377,7 +390,6 @@ Gets the input from user
 @return Returns the input from the user
 */
 std::list<std::string> getInput(std::string inputReq, std::string inputEnd, char ignoreStart) {
-	std::cout << "GETINPUT" << std::endl;
 	std::string input;
 	char in[128];
 	std::list<std::string> list;
@@ -403,16 +415,15 @@ Gets the files from list which have one of the given prefixes and match the suff
 @param prefixes List of prefixes
 @param suffix List of suffixes
 @param prexifLen Pointer to an empty list where the length of the prefixes is written to
-@param remLeadingNoneChar Whether leading none alphanumeric characters should be removed
+@param remLeadingNoneChar Whether leading none alphabetic characters should be removed
 @return Returns a list of files which have one of the prefixes and match the suffixes
 */
-std::list<std::string> getFilesWithPrefixAndSuffix(std::list<std::string> files, std::list<std::string> prefixes, std::list<std::string> suffix, std::list<int> *prefixLen, bool remLeadingNoneChar) {
+std::list<std::string> getFilesWithPrefixAndSuffix(std::list<std::string> files, std::list<std::string> prefixes, std::list<std::string> suffix, std::list<int> *prefixLen, bool remLeadingNoneChar, bool remTilCertChar, char remUntilChar) {
 	std::list<std::string> filesWPrefix;
 
 	for (std::list<std::string>::iterator i = files.begin(); i != files.end(); i++) {
 		for (std::list<std::string>::iterator j = prefixes.begin(); j != prefixes.end(); j++)
 			if (starts_with(*i, *j)) {
-				std::cout << "STARTS WITH" << std::endl;
 				if (suffix.size() > 0) {
 					// Iterate through suffixes
 					for (std::list<std::string>::iterator s = suffix.begin(); s != suffix.end(); s++)
@@ -426,24 +437,31 @@ std::list<std::string> getFilesWithPrefixAndSuffix(std::list<std::string> files,
 				}
 			}
 
-		if (remLeadingNoneChar && !isAlphanumeric(i->at(0)))
-			if (suffix.size() > 0) {
-				// Iterate through suffixes
-				for (std::list<std::string>::iterator s = suffix.begin(); s != suffix.end(); s++)
-					if (ends_with(*i, *s)) {
-						filesWPrefix.push_back(*i);
-						prefixLen->push_back(0);
-					}
-			} else {
+		if (remLeadingNoneChar && !isAlphabetical(i->at(0)))
+			if(isAlphabetical(removeFileType(*i)))
+				if (suffix.size() > 0) {
+					// Iterate through suffixes
+					for (std::list<std::string>::iterator s = suffix.begin(); s != suffix.end(); s++)
+						if (ends_with(*i, *s)) {
+							filesWPrefix.push_back(*i);
+							prefixLen->push_back(0);
+						}
+				} else {
+					filesWPrefix.push_back(*i);
+					prefixLen->push_back(0);
+				}
+
+		if(remTilCertChar)
+			if (contains(*i, remUntilChar) && !contains(i->substr(0, i->find_first_of(remUntilChar)), filesWPrefix)) {
 				filesWPrefix.push_back(*i);
-				prefixLen->push_back(0);
+				prefixLen->push_back(i->find_first_of(remUntilChar));
 			}
 	}
 
 	return filesWPrefix;
 }
 
-void renameFilesInDirectory(DIR dir, std::string directory, bool showOutput, bool remLeadingNoneChar, std::list<std::string> prefixes, std::list<std::string> suffix, std::list<int> prefixLen, std::string defRename) {
+void renameFilesInDirectory(DIR dir, std::string directory, bool showOutput, bool remLeadingNoneChar, std::list<std::string> prefixes, std::list<std::string> suffix, std::list<int> prefixLen, std::string defRename, bool remTilCertChar, char remUntilChar) {
 	struct dirent *pent = NULL;
 	std::list<std::string> files;
 	std::list<std::string> filesWPrefix;
@@ -458,7 +476,7 @@ void renameFilesInDirectory(DIR dir, std::string directory, bool showOutput, boo
 		printList(files);
 	}
 
-	filesWPrefix = getFilesWithPrefixAndSuffix(files, prefixes, suffix, &prefixLen, remLeadingNoneChar);
+	filesWPrefix = getFilesWithPrefixAndSuffix(files, prefixes, suffix, &prefixLen, remLeadingNoneChar, remTilCertChar, remUntilChar);
 
 	// Output the files with one of the given prefixes
 	if (showOutput) {
@@ -477,6 +495,8 @@ int main(int argc, char* argv[]) {
 	std::list<std::string> dirNames;
 	std::list<std::string> excludedFolders;
 
+	char remUntilChar;
+	bool remTilCertChar = false;
 	bool dirSet = false;
 	bool showOutput = false;
 	bool prefSet = false;
@@ -574,12 +594,17 @@ int main(int argc, char* argv[]) {
 
 			suffSet = true;
 		}
+		// Command lind argument: Until character
+		else if (strcmp(argv[i], "-uc") == 0 || strcmp(argv[i], "-untilcharacter") == 0) {
+			remTilCertChar = true;
+			remUntilChar = argv[i + 1][0];
+		}
 		// Command line argument: Help
 		else if (strcmp(argv[i], "-help") == 0 || strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-?") == 0 || strcmp(argv[i], "?") == 0) {
 			std::cout << "-d,\t-directory\tThe directory you want to be in." << std::endl;
 			std::cout << "-def,\t-default\tThe filename which is defaulted to if there are problems with the one without prefix." << std::endl;
 			std::cout << "-delim,\t-delimiter\tSets the delimiter for the prefixes and suffixes input." << std::endl;
-			std::cout << "-nc,\t-nonechar\tDeletes none-alphanumeric characters from start of the file." << std::endl;
+			std::cout << "-nc,\t-nonechar\tDeletes none-alphabetic characters from start of the file." << std::endl;
 			std::cout << "-o,\t-output\t\tWhether the program will generate output or not(Doesn't need an argument)." << std::endl;
 			std::cout << "-p,\t-prefix\t\tThe prefixes you want to remove." << std::endl;
 			std::cout << "-r,\t-recursive\tWhether you want to operate recurisve." << std::endl;
@@ -622,7 +647,7 @@ int main(int argc, char* argv[]) {
 
 
 	for (std::list<std::string>::iterator n = dirNames.begin(); n != dirNames.end(); n++)
-		renameFilesInDirectory(*opendir(n->c_str()), *n, showOutput, remLeadingNoneChar, prefixes, suffix, prefixLen, defaultName);
+		renameFilesInDirectory(*opendir(n->c_str()), *n, showOutput, remLeadingNoneChar, prefixes, suffix, prefixLen, defaultName, remTilCertChar, remUntilChar);
 
 	std::cout << "Renaming finished!" << std::endl;
 
