@@ -51,7 +51,7 @@ bool contains(std::string string, char containing) {
 }
 
 bool containsOnce(std::string string, std::string containing) {
-	return string.find_first_of(containing) != string.npos && string.find_first_of(containing) + containing.length() + 2, string.length() < string.length() && (string.substr(string.find_first_of(containing) + containing.length() + 2, string.length()).find_first_of(containing) == string.npos);
+	return string.find(containing) == string.find_last_of(containing) - containing.size() + 1;
 }
 
 /**
